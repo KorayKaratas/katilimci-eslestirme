@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Grup Çalışması Katılımcı Eşleştirme</title>
+  <style>
+    :root {
+      --bg: #0f1020;
+      --fg: #f7f7ff;
+      --muted: #bfc3ff;
+      --brand: #5b8cff;
+      --accent: #ff7ab6;
+      --good: #22c55e;
+      --warn: #f59e0b;
+      --card: #17182d;
+      --chip: #212341;
+      --chip-border: #2b2d57;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      color: var(--fg);
+      background:
+        radial-gradient(1000px 600px at 10% -10%, #2a2359 0%, rgba(42,35,89,0) 60%),
+        radial-gradient(800px 500px at 110% 10%, #153d61 0%, rgba(21,61,97,0) 60%),
+        linear-gradient(180deg, #0b0c1a 0%, #0f1020 100%);
+      overflow-x: hidden;
+    }
+    header {
+      padding: 28px 20px 16px;
+      text-align: center;
+    }
+    h1 {
+      margin: 0;
+      font-size: clamp(1.4rem, 2.5vw + 1rem, 2.4rem);
+      letter-spacing: 0.3px;
+      line-height: 1.2;
+    }
+    .sub {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+    main { max-width: 1100px; margin: 0 auto; padding: 16px; }
+
+    .controls {
+      display: flex; gap: 12px; justify-content: center; align-items: center;
+      margin: 14px 0 22px;
+    }
+    button {
+      border: 0; border-radius: 999px; padding: 12px 18px; font-weight: 700; cursor: pointer;
+      background: linear-gradient(135deg, var(--brand), #7aa7ff);
+      color: #fff; box-shadow: 0 8px 24px rgba(91, 140, 255, 0.35);
+      transition: transform .08s ease, filter .2s ease, box-shadow .2s ease;
+    }
+    button:hover { filter: brightness(1.05); }
+    button:active { transform: translateY(1px) scale(0.997); }
+    button:disabled { opacity: .6; cursor: not-allowed; filter: grayscale(0.2) brightness(0.9); }
+
+    .layout {
+      display: grid; grid-template-columns: 1.1fr 1fr; gap: 18px;
+    }
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: 1fr; }
+    }
+
+    .panel { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 16px; }
+    .panel h2 { font-size: 1.05rem; margin: 0 0 12px; color: #eef; letter-spacing: .2px; }
+
+    /* Participants grid */
+    .grid {
+      display: grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap: 10px;
+    }
+    @media (max-width: 680px) { .grid { grid-template-columns: repeat(4, minmax(0,1fr)); } }
+    @media (max-width: 430px) { .grid { grid-template-columns: repeat(3, minmax(0,1fr)); } }
+
+    .chip {
+      position: relative;
+      display: flex; align-items: center; justify-content: center; aspect-ratio: 1 / 1;
+      background: linear-gradient(180deg, var(--chip), #1a1c36);
+      border: 1px solid var(--chip-border);
+      border-radius: 14px; font-weight: 800; font-size: 1.05rem;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 4px 12px rgba(0,0,0,0.2);
+      transition: transform .2s ease, box-shadow .2s ease, filter .2s ease, background .3s ease;
+      user-select: none;
+    }
+    .chip.ready { outline: 2px dashed rgba(255,255,255,0.15); outline-offset: 2px; }
+    .chip.picked {
+      background: linear-gradient(180deg, #2a2d63, #1b1d46);
+      box-shadow: 0 10px 26px rgba(123, 97, 255, 0.35);
+      transform: scale(1.05);
+    }
+    .chip.matched {
+      background: linear-gradient(180deg, rgba(34,197,94,.25), rgba(34,197,94,.1));
+      border-color: rgba(34,197,94,.35);
+      filter: saturate(1.1);
+    }
+
+    /* Live draw */
+    .draw {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: center;
+    }
+    @media (max-width: 520px) { .draw { grid-template-columns: 1fr; } }
+
+    .ball {
+      height: 86px; border-radius: 999px; background: radial-gradient(circle at 30% 30%, #fff, #dfe8ff 40%, #b0c2ff 70%, #7f9bff 100%);
+      color: #0a0f1e; font-weight: 900; font-size: 2rem; display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 10px 24px rgba(127,155,255,.35), inset 0 0 28px rgba(255,255,255,.8);
+      border: 2px solid rgba(255,255,255,.7);
+      animation: float 2s ease-in-out infinite;
+      position: relative; overflow: hidden;
+    }
+    .ball:nth-child(2) { animation-delay: .2s; }
+    @keyframes float { 0%,100%{ transform: translateY(0); } 50% { transform: translateY(-6px); } }
+    .label { text-align: center; color: var(--muted); font-size: .9rem; margin-top: 6px; }
+
+    /* Pairs list */
+    .pairs { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; }
+    @media (max-width: 700px) { .pairs { grid-template-columns: 1fr; } }
+    .pair {
+      display: grid; grid-template-columns: 1fr 38px 1fr; align-items: center; gap: 8px;
+      background: var(--card); border: 1px solid rgba(255,255,255,.08);
+      border-radius: 14px; padding: 10px 12px; box-shadow: 0 6px 16px rgba(0,0,0,.25);
+      transform: translateY(8px); opacity: 0;
+      animation: rise .45s ease forwards;
+    }
+    @keyframes rise { to { transform: translateY(0); opacity: 1; } }
+    .pill { padding: 8px 10px; background: #1e2142; border: 1px solid #2a2d57; border-radius: 12px; text-align: center; font-weight: 800; }
+    .vs { text-align: center; font-weight: 800; color: var(--warn); }
+
+    .progress { height: 8px; background: rgba(255,255,255,.08); border-radius: 999px; overflow: hidden; margin-top: 12px; }
+    .progress > div { height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent), #ffd166, var(--good)); transition: width .35s ease; }
+
+    /* Branding */
+    .brand {
+      position: fixed; right: 10px; bottom: 8px; font-size: .8rem; color: rgba(255,255,255,0.65);
+      background: rgba(0,0,0,0.25); padding: 6px 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.12);
+      backdrop-filter: blur(6px);
+    }
+    .brand strong { color: #fff; }
+
+    /* Confetti canvas */
+    canvas#confetti { position: fixed; inset: 0; pointer-events: none; }
+
+    .footer-note { text-align:center; color: rgba(255,255,255,0.5); font-size: .85rem; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <canvas id="confetti"></canvas>
+
+  <header>
+    <h1>Grup Çalışması Katılımcı Eşleştirme</h1>
+    <div class="sub">24 kişilik sınıfta tek seferlik, adil ve hızlı eşleştirme. Canlı çekilişi izleyin!</div>
+  </header>
+
+  <main>
+    <div class="controls">
+      <button id="startBtn" aria-label="Çekilişi Başlat">🎲 Çekilişi Başlat</button>
+      <div id="status" class="sub" aria-live="polite"></div>
+    </div>
+
+    <div class="layout">
+      <!-- Left: Participants + Live Draw -->
+      <section class="panel">
+        <h2>Katılımcılar</h2>
+        <div id="grid" class="grid" aria-label="Katılımcılar grid"></div>
+        <div class="footer-note">Sayılar katılımcı numaralarını temsil eder.</div>
+        <hr style="border-color: rgba(255,255,255,.08); margin: 16px 0;">
+        <h2>Canlı Çekiliş</h2>
+        <div class="draw" aria-live="polite">
+          <div>
+            <div id="ballA" class="ball" role="img" aria-label="Birinci torba topu">–</div>
+            <div class="label">Birinci Kişi</div>
+          </div>
+          <div>
+            <div id="ballB" class="ball" role="img" aria-label="İkinci torba topu">–</div>
+            <div class="label">İkinci Kişi</div>
+          </div>
+        </div>
+        <div class="progress" title="İlerleme">
+          <div id="bar"></div>
+        </div>
+      </section>
+
+      <!-- Right: Final pairs -->
+      <section class="panel">
+        <h2>Oluşturulan Eşleşmeler</h2>
+        <div id="pairs" class="pairs" aria-live="polite"></div>
+      </section>
+    </div>
+  </main>
+
+  <div class="brand">Koray Karataş · <strong>2K Eğitim Danışmanlık</strong></div>
+
+  <script>
+    // ====== Utilities ======
+    const qs = (sel, el=document) => el.querySelector(sel);
+    const qsa = (sel, el=document) => [...el.querySelectorAll(sel)];
+
+    const PARTICIPANT_COUNT = 24; // Easy to change later
+
+    // Build participant list [1..N]
+    const buildParticipants = (n=PARTICIPANT_COUNT) => Array.from({length:n}, (_,i)=> i+1);
+
+    // Fisher-Yates shuffle (in-place)
+    function shuffle(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    // Confetti minimal implementation
+    const Confetti = (() => {
+      const canvas = qs('#confetti');
+      const ctx = canvas.getContext('2d');
+      let W, H, rafId, pieces = [], running = false, startedAt = 0;
+
+      function resize(){ W = canvas.width = innerWidth; H = canvas.height = innerHeight; }
+      addEventListener('resize', resize);
+      resize();
+
+      function spawn(count=120){
+        for (let i=0;i<count;i++) {
+          pieces.push({
+            x: Math.random()*W,
+            y: -10 - Math.random()*H*0.3,
+            r: 2 + Math.random()*4,
+            vx: -1 + Math.random()*2,
+            vy: 2 + Math.random()*3,
+            a: Math.random()*Math.PI*2,
+            w: 8 + Math.random()*8,
+            h: 6 + Math.random()*6,
+            rot: Math.random()*Math.PI,
+            vr: -0.1 + Math.random()*0.2,
+            color: `hsl(${Math.floor(Math.random()*360)}, 90%, ${60+Math.random()*20}%)`
+          });
+        }
+      }
+
+      function step(ts){
+        if (!startedAt) startedAt = ts;
+        ctx.clearRect(0,0,W,H);
+        pieces.forEach(p => {
+          p.x += p.vx; p.y += p.vy; p.rot += p.vr;
+          if (p.y > H + 20) { p.y = -10; p.x = Math.random()*W; }
+          ctx.save();
+          ctx.translate(p.x, p.y);
+          ctx.rotate(p.rot);
+          ctx.fillStyle = p.color;
+          ctx.fillRect(-p.w/2, -p.h/2, p.w, p.h);
+          ctx.restore();
+        });
+        if (running) rafId = requestAnimationFrame(step);
+      }
+
+      return {
+        burst(){ spawn(120); if (!running){ running = true; requestAnimationFrame(step); }
+          // auto stop after a while
+          setTimeout(()=>{ running=false; cancelAnimationFrame(rafId); pieces=[]; startedAt=0; ctx.clearRect(0,0,W,H); }, 3000);
+        }
+      }
+    })();
+
+    // ====== DOM setup ======
+    const grid = qs('#grid');
+    const pairsEl = qs('#pairs');
+    const startBtn = qs('#startBtn');
+    const statusEl = qs('#status');
+    const ballA = qs('#ballA');
+    const ballB = qs('#ballB');
+    const bar = qs('#bar');
+
+    // Render chips 1..N
+    function renderGrid(n=PARTICIPANT_COUNT){
+      grid.innerHTML = '';
+      for (let i=1;i<=n;i++) {
+        const d = document.createElement('div');
+        d.className = 'chip ready';
+        d.dataset.id = String(i);
+        d.textContent = String(i);
+        grid.appendChild(d);
+      }
+    }
+    renderGrid();
+
+    // Helper to mark chip state
+    function mark(id, cls){
+      const el = qs(`.chip[data-id="${id}"]`);
+      if (el) el.classList.add(cls);
+    }
+
+    function unmarkAllPicked(){ qsa('.chip.picked', grid).forEach(el=>el.classList.remove('picked')); }
+
+    // ====== Pairing logic ======
+    function startDraw(){
+      startBtn.disabled = true;
+      statusEl.textContent = 'Çekiliş başlıyor…';
+      pairsEl.innerHTML = '';
+      bar.style.width = '0%';
+
+      const bag = shuffle(buildParticipants());
+      let idx = 0; // index into bag
+      const totalPairs = Math.floor(bag.length/2);
+
+      const stepPair = () => {
+        if (idx >= bag.length) {
+          statusEl.textContent = 'Tüm eşleşmeler tamamlandı.';
+          Confetti.burst();
+          return;
+        }
+        // Pick two
+        const a = bag[idx++];
+        const b = bag[idx++];
+
+        // Live animation on balls
+        unmarkAllPicked();
+        ballA.textContent = '…';
+        ballB.textContent = '…';
+        // Simulate spin
+        let spins = 18 + Math.floor(Math.random()*10);
+        let tick = 0;
+        const spinIv = setInterval(()=>{
+          const rndA = bag[Math.floor(Math.random()*bag.length)] || a;
+          const rndB = bag[Math.floor(Math.random()*bag.length)] || b;
+          ballA.textContent = rndA;
+          ballB.textContent = rndB;
+          tick++;
+          if (tick >= spins) {
+            clearInterval(spinIv);
+            // Reveal actual draw
+            ballA.textContent = a;
+            ballB.textContent = b;
+            mark(a, 'picked');
+            mark(b, 'picked');
+
+            setTimeout(()=>{
+              mark(a, 'matched');
+              mark(b, 'matched');
+              addPair(a,b);
+              const prog = ((idx/2)/totalPairs)*100;
+              bar.style.width = prog.toFixed(1) + '%';
+              if (idx < bag.length) {
+                setTimeout(stepPair, 420); // slight pause between pairs
+              } else {
+                statusEl.textContent = 'Tüm eşleşmeler tamamlandı.';
+                Confetti.burst();
+              }
+            }, 300);
+          }
+        }, 40);
+      };
+
+      stepPair();
+    }
+
+    function addPair(a,b){
+      const wrap = document.createElement('div');
+      wrap.className = 'pair';
+      wrap.innerHTML = `
+        <div class="pill">#${a}</div>
+        <div class="vs">⇄</div>
+        <div class="pill">#${b}</div>
+      `;
+      pairsEl.appendChild(wrap);
+    }
+
+    startBtn.addEventListener('click', startDraw, { once: true }); // Tek seferlik çalışsın
+
+    // Accessibility: allow Enter to start when focused
+    startBtn.addEventListener('keyup', (e)=>{ if (e.key === 'Enter') startBtn.click(); });
+  </script>
+</body>
+</html>
